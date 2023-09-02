@@ -1,0 +1,128 @@
+version: "3.8"
+services:
+  minecraft:
+    image: itzg/minecraft-server
+    restart: unless-stopped
+    container_name: "${HOST}_minecraft_${TAG}"
+    tty: true
+    stdin_open: true
+    depends_on:
+      mongodb:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: mc-health
+      start_period: 1m
+      interval: 5s
+      retries: 5
+    environment:
+      TZ: "Europe/Berlin"
+      UID: 5333
+      GID: 5333
+      INIT_MEMORY: 4G
+      MAX_MEMORY: 16G
+      USE_AIKAR_FLAGS: true
+
+      EULA: true
+      ONLINE_MODE: ${ONLINE_MODE}
+      SNOOPER_ENABLED: false
+
+      TYPE: ${TYPE}
+      MODRINTH_PROJECTS: ${MODRINTH_PROJECTS}
+      MODRINITH_ALLOWED_VERSIONS: beta
+      PATCH_DEFINITIONS: "/data/patches"
+
+      ICON: ${ICON}
+      OVERRIDE_ICON: true
+      RESOURCE_PACK: ${RESOURCE_PACK}
+      RESOURCE_PACK_SHA1: "${RESOURCE_PACK_SHA1}"
+
+      # server specific settings
+      SERVER_NAME: ${SERVER_NAME}
+      MOTD: ${MOTD}
+      OPS: ${OPS}
+      OVERRIDE_OPS: true
+      WHITELIST_FILE: ${WHITELIST_FILE}
+      DIFFICULTY: hard
+      MODE: survival
+      ALLOW_NETHER: true
+      ALLOW_FLIGHT: false
+      SPAWN_PROTECTION: 1
+      VIEW_DISTANCE: 16
+
+      # settings
+      ENABLE_QUERY: true
+      SERVER_PORT: 25565
+      QUERY_PORT: 25565
+      ENABLE_RCON: true
+      RCON_PORT: 25575
+      RCON_PASSWORD: ${RWA_PASSWORD}
+    networks:
+      - mc
+      - mongodb
+      - rcon
+    ports:
+      - ${MINECRAFT_PORT}:25565/tcp
+      - ${MINECRAFT_PORT}:25565/udp
+      - ${RCON_EXTERNAL_PORT}:25575/tcp
+    volumes:
+      - /var/lib/minecraft/${HOST}_${TAG}/data:/data
+      - ./patches/${HOST}:/data/patches:ro
+      - ./whitelist.json:/data/whitelist.json:ro
+
+  mongodb:
+    container_name: "${HOST}_mongodb_${TAG}"
+    restart: unless-stopped
+    image: mongo
+    healthcheck:
+      test: [
+        "CMD",
+        "mongosh", "--eval", "db.adminCommand('ping')"
+      ]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+    environment:
+      UID: 5333
+      GID: 5333
+      MONGO_DATA_DIR: "/data/db"
+      MONGO_LOG_DIR: "/dev/null"
+      MONGO_INITDB_ROOT_USERNAME: "mcuser"
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    networks:
+      - mongodb
+    ports:
+      - 127.0.0.1:${MONGODB_PORT}:27017
+    volumes:
+      - /var/lib/minecraft/${HOST}_${TAG}/db:/data/db
+
+  rcon:
+    container_name: "${HOST}_rcon_${TAG}"
+    image: itzg/rcon
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Berlin"
+      UID: 5333
+      GID: 5333
+
+      RWA_ENV: false
+      RWA_ADMIN: true
+      RWA_USERNAME: "rcon"
+      RWA_PASSWORD: ${RWA_PASSWORD}
+    volumes:
+      - "/var/lib/minecraft/${HOST}_${TAG}/rcon:/opt/rcon-web-admin/db"
+    ports:
+      - 172.168.10.1:${WA_PORT}:4181
+      - 172.168.10.1:${WS_PORT}:4182
+      
+    networks:
+      - rcon
+
+networks:
+  mc:
+    name: "${HOST}_minecraft_${TAG}"
+  mongodb:
+    name: "${HOST}_mongodb_${TAG}"
+  rcon:
+    name: "${HOST}_rcon_${TAG}"

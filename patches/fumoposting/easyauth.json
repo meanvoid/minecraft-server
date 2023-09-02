@@ -1,0 +1,19 @@
+{
+  "file": "/data/mods/EasyAuth/config.json",
+  "ops": [
+    {
+      "$set": 
+      {
+        "path": "$.main.databaseType",
+        "value": "MongoDB"
+      }
+   },
+    {
+     "$set": 
+     {
+        "path": "$.main.maxLoginTries",
+        "value": "5"
+     }
+    }
+  ]
+}
